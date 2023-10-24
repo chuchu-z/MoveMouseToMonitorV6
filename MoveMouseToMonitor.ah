@@ -1,0 +1,214 @@
+; <COMPILER: v1.1.34.01>
+Version := "6"
+#Warn, UseUnsetLocal
+#NoEnv
+#SingleInstance Force
+SendMode Input
+SetWorkingDir %A_ScriptDir%
+SetBatchLines, -1
+Gosub, InitializeVars
+Gosub, ConfigureInitialTray
+Return
+
+InitializeVars:
+    Global ProgramName
+    SplitPath, A_ScriptName, , , , ProgramName
+    FileGetTime, ScriptDateTime, %A_ScriptName%, M
+    FormatTime, ScriptDateTime, %ScriptDateTime%, yyyyMMdd-HHmmss
+    IconFile := A_ScriptDir . "\MoveMouseToMonitor.ico"
+    IdentifySeconds := 3
+    OffsetX := -1
+    OffsetY := -1
+    HotkeyModifiers := "!^"
+    SplashOffset := 128
+    MonitorIDs := ["1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
+    MonitorNums := {1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7", 8: "8", 9: "9", a: "10", b: "11", c: "12", d: 13, e: "14", f: "15", g: "16", h: "17", i: "18", j: "19", k: "20", l: "21", m: "22", n: "23", o: "24", p: "25", q: "26", r: "27", s: "28", t: "29", u: "30", v: "31", w: "32", x: "33", y: "34", z: "35"}
+    IdentifyMilliseconds := IdentifySeconds * 1000
+    NumModifiers := StrLen(HotkeyModifiers)
+    Hotkey, %HotkeyModifiers%0, MoveMousePrimary, On
+    SysGet, OrigNumMons, MonitorCount
+    Loop, %OrigNumMons%
+    {
+        MonitorHotkey := HotkeyModifiers . MonitorIDs[A_Index]
+        Hotkey, %MonitorHotkey%, MoveMouseMon, On
+    }
+    Return
+
+ConfigureInitialTray:
+    Menu, Tray, NoStandard
+    Menu, Tray, Add, Show &Monitor and Virtual Screen Information, ContextMenu
+    Menu, Tray, Add, &Identify Monitors, ContextMenu
+    Menu, Tray, Add, Start with &Windows (On/Off toggle), ContextMenu
+    StartupLink := A_Startup . "\" . ProgramName . ".lnk"
+    If (FileExist(StartupLink))
+        Menu, Tray, Check, Start with &Windows (On/Off toggle)
+    Else
+        Menu, Tray, Uncheck, Start with &Windows (On/Off toggle)
+    Menu, Tray, Add, &Reload Script, ContextMenu
+    Menu, Tray, Add, &About, ContextMenu
+    Menu, Tray, Add, E&xit, ContextMenu
+    Menu, Tray, Default, Show &Monitor and Virtual Screen Information
+    HotkeyModifiersTip := StrReplace(HotkeyModifiers, "+", "Shift+")
+    HotkeyModifiersTip := StrReplace(HotkeyModifiersTip, "!", "Alt+")
+    HotkeyModifiersTip := StrReplace(HotkeyModifiersTip, "^", "Ctrl+")
+    HotkeyModifiersTip := StrReplace(HotkeyModifiersTip, "#", "Win+")
+    TrayTip := ProgramName . "`n" . HotkeyModifiersTip . "Number 0-9 or Letter a-z (zero always primary)`nRight-click for context menu"
+    Menu, Tray, Tip, %TrayTip%
+    Menu, Tray, Icon, %IconFile%
+    Return
+
+MoveMouseMon:
+    MonID := SubStr(A_ThisHotkey, NumModifiers + 1, 1)
+    MonNum := MonitorNums[MonID]
+    PerformMove(MonNum, OffsetX, OffsetY)
+    Return
+
+MoveMousePrimary:
+    SysGet, PrimaryMonNum, MonitorPrimary
+    PerformMove(PrimaryMonNum, OffsetX, OffsetY)
+    Return
+
+PerformMove(MoveMonNum, OffX, OffY)
+{
+    global MoveX, MoveY
+    Gosub, CheckNumMonsChanged
+    RestoreDPI := DllCall("SetThreadDpiAwarenessContext", "ptr", -3, "ptr")
+    SysGet, Coordinates%MoveMonNum%, Monitor, %MoveMonNum%
+    Left := Coordinates%MoveMonNum%Left
+    Right := Coordinates%MoveMonNum%Right
+    Top := Coordinates%MoveMonNum%Top
+    Bottom := Coordinates%MoveMonNum%Bottom
+    If (OffX = -1)
+        MoveX := Left + (Floor(0.5 * (Right - Left)))
+    Else
+        MoveX := Left + OffX
+    If (OffY = -1)
+        MoveY := Top + (Floor(0.5 * (Bottom - Top)))
+    Else
+        MoveY := Top + OffY
+    DllCall("SetCursorPos", "int", MoveX, "int", MoveY)
+    Sleep, 10
+    DllCall("SetCursorPos", "int", MoveX, "int", MoveY)
+    DllCall("SetThreadDpiAwarenessContext", "ptr", RestoreDPI, "ptr")
+
+    Gosub, ActivateWindowByMousePosition
+
+    Return
+}
+
+ActivateWindowByMousePosition:
+    MouseGetPos, , , id, control
+    WinGetTitle, title, ahk_id %id%
+    ;WinGetClass, class, ahk_id %id%
+    ;MsgBox, Current Window: `%title% (`%class%)
+    WinActivate, %title%
+    Return
+
+CheckNumMonsChanged:
+    SysGet, CurrNumMons, MonitorCount
+    If (OrigNumMons != CurrNumMons)
+    {
+        MsgBox, 4144, Warning, Number of monitors changed since script was run`nOriginal=%OrigNumMons%`nCurrent=%CurrNumMons%`n`nWill reload script when you click OK button
+        Loop, %OrigNumMons%
+        {
+            MonitorHotkey := HotkeyModifiers . MonitorIDs[A_Index]
+            Hotkey, %MonitorHotkey%,, Off
+        }
+        Reload
+        Sleep, 2000
+        MsgBox, 4112, Error, Unable to reload script`nWill exit when you click OK button`nYou will have to re-run the script manually
+        ExitApp
+    }
+    Return
+
+ContextMenu:
+    If (A_ThisMenuItem = "Show &Monitor and Virtual Screen Information")
+    {
+        Gosub, ShowMonitorInfo
+    }
+    Else If (A_ThisMenuItem = "&Identify Monitors")
+    {
+        Gosub, IdentifyMonitors
+    }
+    Else If (A_ThisMenuItem = "Start with &Windows (On/Off toggle)")
+    {
+        ToggleStartWithWindows()
+    }
+    Else If (A_ThisMenuItem = "&Reload Script")
+    {
+        Reload
+    }
+    Else If (A_ThisMenuItem = "&About")
+    {
+        MsgBox, 4096, About, %ProgramName%`n`nVersion: %Version%`nAuthor: Skwire`n`nA script to move the mouse cursor to a specific monitor`n`nDate/time script compiled: %ScriptDateTime%`n`nMore information:`nhttps://www.dcmembers.com/skwire/download/move-mouse-to-monitor/
+    }
+    Else If (A_ThisMenuItem = "E&xit")
+    {
+        ExitApp
+    }
+    Return
+
+ShowMonitorInfo:
+    SysGet, NumMons, MonitorCount
+    SysGet, PrimaryMonNum, MonitorPrimary
+
+    MonitorInfo := ""
+    Loop, %NumMons%
+    {
+        MonNum := MonitorNums[A_Index]
+        SysGet, Coordinates%MonNum%, Monitor, %MonNum%
+        Left := Coordinates%MonNum%Left
+        Right := Coordinates%MonNum%Right
+        Top := Coordinates%MonNum%Top
+        Bottom := Coordinates%MonNum%Bottom
+        Width := Right - Left
+        Height := Bottom - Top
+        If (MonNum = PrimaryMonNum)
+            MonitorInfo .= "Monitor " . MonNum . " (Primary):`n"
+        Else
+            MonitorInfo .= "Monitor " . MonNum . ":`n"
+        MonitorInfo .= "Coordinates: " . Left . "x" . Top . " to " . Right . "x" . Bottom . "`n"
+        MonitorInfo .= "Size: " . Width . "x" . Height . "`n`n"
+    }
+    MsgBox, 4096, Monitor and Virtual Screen Information, %MonitorInfo%
+    Return
+
+IdentifyMonitors:
+    SysGet, NumMons, MonitorCount
+    Loop, %NumMons%
+    {
+        MonNum := MonitorNums[A_Index]
+        SysGet, Coordinates%MonNum%, Monitor, %MonNum%
+        Left := Coordinates%MonNum%Left
+        Right := Coordinates%MonNum%Right
+        Top := Coordinates%MonNum%Top
+        Bottom := Coordinates%MonNum%Bottom
+        Width := Right - Left
+        Height := Bottom - Top
+        CoordText := "(" . Left . ", " . Top . ") - (" . Right . ", " . Bottom . ")"
+        CoordText := CoordText . " (Size: " . Width . "x" . Height . ")"
+        TrayTip := "Identifying Monitor " . MonNum . " (Virtual Screen: " . CoordText . ")"
+        Menu, Tray, Tip, %TrayTip%
+        TrayTip := ProgramName . "`n" . HotkeyModifiersTip . "Number 0-9 or Letter a-z (zero always primary)`nRight-click for context menu`n`nIdentifying Monitor " . MonNum . " (Virtual Screen: " . CoordText . ")"
+        Menu, Tray, Default
+        Sleep, %IdentifyMilliseconds%
+        TrayTip := ProgramName . "`n" . HotkeyModifiersTip . "Number 0-9 or Letter a-z (zero always primary)`nRight-click for context menu"
+        Menu, Tray, Tip, %TrayTip%
+    }
+    Return
+
+ToggleStartWithWindows()
+{
+    RegRead, RegValue, HKCU, Software\Microsoft\Windows\CurrentVersion\Run, %ProgramName%
+    If (RegValue = "")
+    {
+        RegWrite, REG_SZ, HKCU, Software\Microsoft\Windows\CurrentVersion\Run, %ProgramName%, %A_ScriptFullPath%
+        Menu, Tray, Check, Start with &Windows (On/Off toggle)
+    }
+    Else
+    {
+        RegDelete, HKCU, Software\Microsoft\Windows\CurrentVersion\Run, %ProgramName%
+        Menu, Tray, Uncheck, Start with &Windows (On/Off toggle)
+    }
+    Return
+}
