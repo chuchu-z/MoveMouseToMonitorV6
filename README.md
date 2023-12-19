@@ -22,7 +22,7 @@
 
 一位叫做 Joe Winograd 的作者, 基于 AutoHotKey 做了个 MoveMouseToMonitor 脚本。简单来讲，就是让你的键盘教你的鼠标做事，**通过 Alt + Ctrl + 数字键，将光标直接移动到对应屏幕**，如下图所示：
 
-![](../README/v2-ac0e2c87c0d11e110f2d326bd5a7c97c_720w.png)
+![](v2-ac0e2c87c0d11e110f2d326bd5a7c97c_720w.png)
 
 例如，**想操作图中屏幕2，只要按下 Alt + Ctrl + 2 ，光标立刻跳转到屏幕2的中心**。
 
