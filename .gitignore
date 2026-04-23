@@ -1,0 +1,14 @@
+# Claude Code local workspace
+.claude/
+
+# Runtime-generated config (user's language preference, etc.)
+MoveMouseToMonitor.ini
+
+# Windows artifacts
+Thumbs.db
+Desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp

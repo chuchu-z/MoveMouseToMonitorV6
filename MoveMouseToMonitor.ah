@@ -1,4 +1,4 @@
-; <COMPILER: v1.1.34.01>
+﻿; <COMPILER: v1.1.34.01>
 Version := "6"
 #Warn, UseUnsetLocal
 #NoEnv
@@ -12,6 +12,7 @@ Return
 
 InitializeVars:
     Global ProgramName
+    LastPos := {}
     SplitPath, A_ScriptName, , , , ProgramName
     FileGetTime, ScriptDateTime, %A_ScriptName%, M
     FormatTime, ScriptDateTime, %ScriptDateTime%, yyyyMMdd-HHmmss
@@ -32,27 +33,114 @@ InitializeVars:
         MonitorHotkey := HotkeyModifiers . MonitorIDs[A_Index]
         Hotkey, %MonitorHotkey%, MoveMouseMon, On
     }
+    Hotkey, !^+i, IdentifyMonitors, On
+    OnMessage(0x007E, "OnDisplayChange")
+    LangFile := A_ScriptDir . "\MoveMouseToMonitor.ini"
+    IniRead, CurrentLang, %LangFile%, General, Language, zh
+    If (CurrentLang != "zh" && CurrentLang != "en")
+        CurrentLang := "zh"
+    Gosub, LoadStrings
+    Return
+
+LoadStrings:
+    Strings := {}
+    Strings["zh"] := {}
+    Strings["en"] := {}
+    Strings["zh", "menu_show_info"]        := "显示显示器与虚拟屏信息(&M)"
+    Strings["en", "menu_show_info"]        := "Show &Monitor and Virtual Screen Information"
+    Strings["zh", "menu_identify"]         := "识别显示器(&I)"
+    Strings["en", "menu_identify"]         := "&Identify Monitors"
+    Strings["zh", "menu_startup"]          := "开机自启(&W)"
+    Strings["en", "menu_startup"]          := "Start with &Windows (On/Off toggle)"
+    Strings["zh", "menu_reload"]           := "重新加载脚本(&R)"
+    Strings["en", "menu_reload"]           := "&Reload Script"
+    Strings["zh", "menu_lang_toggle"]      := "Switch to English / 切换到英文"
+    Strings["en", "menu_lang_toggle"]      := "切换到中文 / Switch to Chinese"
+    Strings["zh", "menu_about"]            := "关于(&A)"
+    Strings["en", "menu_about"]            := "&About"
+    Strings["zh", "menu_exit"]             := "退出(&X)"
+    Strings["en", "menu_exit"]             := "E&xit"
+    Strings["zh", "traytip_hotkeys"]       := "数字 0-9 或字母 a-z（0 始终为主屏）"
+    Strings["en", "traytip_hotkeys"]       := "Number 0-9 or Letter a-z (zero always primary)"
+    Strings["zh", "traytip_context"]       := "右键查看菜单"
+    Strings["en", "traytip_context"]       := "Right-click for context menu"
+    Strings["zh", "dialog_info_title"]     := "显示器与虚拟屏信息"
+    Strings["en", "dialog_info_title"]     := "Monitor and Virtual Screen Information"
+    Strings["zh", "dialog_info_monitor"]   := "显示器 "
+    Strings["en", "dialog_info_monitor"]   := "Monitor "
+    Strings["zh", "dialog_info_primary"]   := "（主屏）"
+    Strings["en", "dialog_info_primary"]   := " (Primary)"
+    Strings["zh", "dialog_info_coords"]    := "坐标: "
+    Strings["en", "dialog_info_coords"]    := "Coordinates: "
+    Strings["zh", "dialog_info_to"]        := " 到 "
+    Strings["en", "dialog_info_to"]        := " to "
+    Strings["zh", "dialog_info_size"]      := "尺寸: "
+    Strings["en", "dialog_info_size"]      := "Size: "
+    Strings["zh", "dialog_about_title"]    := "关于"
+    Strings["en", "dialog_about_title"]    := "About"
+    Strings["zh", "dialog_about_version"]  := "版本"
+    Strings["en", "dialog_about_version"]  := "Version"
+    Strings["zh", "dialog_about_author"]   := "作者"
+    Strings["en", "dialog_about_author"]   := "Author"
+    Strings["zh", "dialog_about_desc"]     := "将鼠标光标移动到指定显示器的脚本"
+    Strings["en", "dialog_about_desc"]     := "A script to move the mouse cursor to a specific monitor"
+    Strings["zh", "dialog_about_compiled"] := "脚本编译时间"
+    Strings["en", "dialog_about_compiled"] := "Date/time script compiled"
+    Strings["zh", "dialog_about_original"] := "原作者"
+    Strings["en", "dialog_about_original"] := "Original author"
+    Strings["zh", "dialog_about_project"]  := "项目地址"
+    Strings["en", "dialog_about_project"]  := "Project"
+    Strings["zh", "dialog_about_more"]     := "更多信息"
+    Strings["en", "dialog_about_more"]     := "More information"
+    Strings["zh", "btn_copy_url"]          := "复制链接"
+    Strings["en", "btn_copy_url"]          := "Copy URL"
+    Strings["zh", "btn_close"]             := "关闭"
+    Strings["en", "btn_close"]             := "Close"
+    Strings["zh", "tip_url_copied"]        := "链接已复制到剪贴板"
+    Strings["en", "tip_url_copied"]        := "URL copied to clipboard"
+    Return
+
+T(key) {
+    global Strings, CurrentLang
+    Return Strings[CurrentLang, key]
+}
+
+ToggleLanguage:
+    CurrentLang := (CurrentLang = "zh") ? "en" : "zh"
+    IniWrite, %CurrentLang%, %LangFile%, General, Language
+    Gosub, ConfigureInitialTray
     Return
 
 ConfigureInitialTray:
+    Menu, Tray, DeleteAll
     Menu, Tray, NoStandard
-    Menu, Tray, Add, Show &Monitor and Virtual Screen Information, ContextMenu
-    Menu, Tray, Add, &Identify Monitors, ContextMenu
-    Menu, Tray, Add, Start with &Windows (On/Off toggle), ContextMenu
+    MenuShowInfo    := T("menu_show_info")
+    MenuIdentify    := T("menu_identify") . "`tAlt+Ctrl+Shift+I"
+    MenuStartup     := T("menu_startup")
+    MenuReload      := T("menu_reload")
+    MenuLangToggle  := T("menu_lang_toggle")
+    MenuAbout       := T("menu_about")
+    MenuExit        := T("menu_exit")
+    Menu, Tray, Add, %MenuShowInfo%, ContextMenu
+    Menu, Tray, Add, %MenuIdentify%, ContextMenu
+    Menu, Tray, Add, %MenuStartup%, ContextMenu
     StartupLink := A_Startup . "\" . ProgramName . ".lnk"
     If (FileExist(StartupLink))
-        Menu, Tray, Check, Start with &Windows (On/Off toggle)
+        Menu, Tray, Check, %MenuStartup%
     Else
-        Menu, Tray, Uncheck, Start with &Windows (On/Off toggle)
-    Menu, Tray, Add, &Reload Script, ContextMenu
-    Menu, Tray, Add, &About, ContextMenu
-    Menu, Tray, Add, E&xit, ContextMenu
-    Menu, Tray, Default, Show &Monitor and Virtual Screen Information
+        Menu, Tray, Uncheck, %MenuStartup%
+    Menu, Tray, Add, %MenuReload%, ContextMenu
+    Menu, Tray, Add, %MenuLangToggle%, ContextMenu
+    Menu, Tray, Add, %MenuAbout%, ContextMenu
+    Menu, Tray, Add, %MenuExit%, ContextMenu
+    Menu, Tray, Default, %MenuShowInfo%
     HotkeyModifiersTip := StrReplace(HotkeyModifiers, "+", "Shift+")
     HotkeyModifiersTip := StrReplace(HotkeyModifiersTip, "!", "Alt+")
     HotkeyModifiersTip := StrReplace(HotkeyModifiersTip, "^", "Ctrl+")
     HotkeyModifiersTip := StrReplace(HotkeyModifiersTip, "#", "Win+")
-    TrayTip := ProgramName . "`n" . HotkeyModifiersTip . "Number 0-9 or Letter a-z (zero always primary)`nRight-click for context menu"
+    TrayTipHotkeys := T("traytip_hotkeys")
+    TrayTipContext := T("traytip_context")
+    TrayTip := ProgramName . "`n" . HotkeyModifiersTip . TrayTipHotkeys . "`n" . TrayTipContext
     Menu, Tray, Tip, %TrayTip%
     Menu, Tray, Icon, %IconFile%
     Return
@@ -70,22 +158,35 @@ MoveMousePrimary:
 
 PerformMove(MoveMonNum, OffX, OffY)
 {
-    global MoveX, MoveY
-    Gosub, CheckNumMonsChanged
+    global MoveX, MoveY, LastPos
     RestoreDPI := DllCall("SetThreadDpiAwarenessContext", "ptr", -3, "ptr")
+
+    MouseGetPos, CurX, CurY
+    CurMon := GetMonitorFromPoint(CurX, CurY)
+    If (CurMon)
+        LastPos[CurMon] := {x: CurX, y: CurY}
+
     SysGet, Coordinates%MoveMonNum%, Monitor, %MoveMonNum%
     Left := Coordinates%MoveMonNum%Left
     Right := Coordinates%MoveMonNum%Right
     Top := Coordinates%MoveMonNum%Top
     Bottom := Coordinates%MoveMonNum%Bottom
-    If (OffX = -1)
-        MoveX := Left + (Floor(0.5 * (Right - Left)))
+    If (OffX = -1 && OffY = -1 && LastPos.HasKey(MoveMonNum))
+    {
+        MoveX := LastPos[MoveMonNum].x
+        MoveY := LastPos[MoveMonNum].y
+    }
     Else
-        MoveX := Left + OffX
-    If (OffY = -1)
-        MoveY := Top + (Floor(0.5 * (Bottom - Top)))
-    Else
-        MoveY := Top + OffY
+    {
+        If (OffX = -1)
+            MoveX := Left + (Floor(0.5 * (Right - Left)))
+        Else
+            MoveX := Left + OffX
+        If (OffY = -1)
+            MoveY := Top + (Floor(0.5 * (Bottom - Top)))
+        Else
+            MoveY := Top + OffY
+    }
     DllCall("SetCursorPos", "int", MoveX, "int", MoveY)
     Sleep, 10
     DllCall("SetCursorPos", "int", MoveX, "int", MoveY)
@@ -96,56 +197,98 @@ PerformMove(MoveMonNum, OffX, OffY)
     Return
 }
 
+GetMonitorFromPoint(x, y)
+{
+    SysGet, NumMons, MonitorCount
+    Loop, %NumMons%
+    {
+        SysGet, Mon, Monitor, %A_Index%
+        If (x >= MonLeft && x < MonRight && y >= MonTop && y < MonBottom)
+            Return A_Index
+    }
+    Return 0
+}
+
 ActivateWindowByMousePosition:
-    MouseGetPos, , , id, control
-    WinGetTitle, title, ahk_id %id%
-    ;WinGetClass, class, ahk_id %id%
-    ;MsgBox, Current Window: `%title% (`%class%)
-    WinActivate, %title%
+    MouseGetPos, , , id
+    If (!id)
+        Return
+    WinGetClass, winClass, ahk_id %id%
+    If (winClass = "Progman" || winClass = "WorkerW")
+        Return
+    WinActivate, ahk_id %id%
     Return
 
-CheckNumMonsChanged:
+OnDisplayChange(wParam, lParam, msg, hwnd)
+{
+    global OrigNumMons
     SysGet, CurrNumMons, MonitorCount
     If (OrigNumMons != CurrNumMons)
-    {
-        MsgBox, 4144, Warning, Number of monitors changed since script was run`nOriginal=%OrigNumMons%`nCurrent=%CurrNumMons%`n`nWill reload script when you click OK button
-        Loop, %OrigNumMons%
-        {
-            MonitorHotkey := HotkeyModifiers . MonitorIDs[A_Index]
-            Hotkey, %MonitorHotkey%,, Off
-        }
         Reload
-        Sleep, 2000
-        MsgBox, 4112, Error, Unable to reload script`nWill exit when you click OK button`nYou will have to re-run the script manually
-        ExitApp
-    }
-    Return
+}
 
 ContextMenu:
-    If (A_ThisMenuItem = "Show &Monitor and Virtual Screen Information")
-    {
+    If (A_ThisMenuItemPos = 1)
         Gosub, ShowMonitorInfo
-    }
-    Else If (A_ThisMenuItem = "&Identify Monitors")
-    {
+    Else If (A_ThisMenuItemPos = 2)
         Gosub, IdentifyMonitors
-    }
-    Else If (A_ThisMenuItem = "Start with &Windows (On/Off toggle)")
-    {
+    Else If (A_ThisMenuItemPos = 3)
         ToggleStartWithWindows()
-    }
-    Else If (A_ThisMenuItem = "&Reload Script")
-    {
+    Else If (A_ThisMenuItemPos = 4)
         Reload
-    }
-    Else If (A_ThisMenuItem = "&About")
-    {
-        MsgBox, 4096, About, %ProgramName%`n`nVersion: %Version%`nAuthor: Skwire`n`nA script to move the mouse cursor to a specific monitor`n`nDate/time script compiled: %ScriptDateTime%`n`nMore information:`nhttps://www.dcmembers.com/skwire/download/move-mouse-to-monitor/
-    }
-    Else If (A_ThisMenuItem = "E&xit")
-    {
+    Else If (A_ThisMenuItemPos = 5)
+        Gosub, ToggleLanguage
+    Else If (A_ThisMenuItemPos = 6)
+        Gosub, ShowAbout
+    Else If (A_ThisMenuItemPos = 7)
         ExitApp
-    }
+    Return
+
+ShowAbout:
+    AboutUrl := "https://github.com/chuchu-z/MoveMouseToMonitorV6"
+    AboutTitle      := T("dialog_about_title")
+    AboutVersion    := T("dialog_about_version") . ": " . Version
+    AboutAuthor     := T("dialog_about_author") . ": chuchu-z"
+    AboutOriginal   := T("dialog_about_original") . ": Skwire"
+    AboutDesc       := T("dialog_about_desc")
+    AboutCompiled   := T("dialog_about_compiled") . ": " . ScriptDateTime
+    AboutProjectLbl := T("dialog_about_project") . ":"
+    LinkHtml        := "<a href=""" . AboutUrl . """>" . AboutUrl . "</a>"
+    BtnCopy         := T("btn_copy_url")
+    BtnClose        := T("btn_close")
+
+    Gui, AboutDialog: Destroy
+    Gui, AboutDialog: New, +AlwaysOnTop +OwnDialogs -MinimizeBox -MaximizeBox, %AboutTitle%
+    Gui, AboutDialog: Margin, 24, 18
+    Gui, AboutDialog: Font, s12 Bold, Segoe UI
+    Gui, AboutDialog: Add, Text,, %ProgramName%
+    Gui, AboutDialog: Font, s9 Norm, Segoe UI
+    Gui, AboutDialog: Add, Text, y+8, %AboutVersion%
+    Gui, AboutDialog: Add, Text,, %AboutAuthor%
+    Gui, AboutDialog: Add, Text,, %AboutOriginal%
+    Gui, AboutDialog: Add, Text, y+12 w400, %AboutDesc%
+    Gui, AboutDialog: Add, Text, y+12, %AboutCompiled%
+    Gui, AboutDialog: Add, Text, y+12, %AboutProjectLbl%
+    Gui, AboutDialog: Add, Link, y+4, %LinkHtml%
+    Gui, AboutDialog: Add, Button, y+18 w110 gAboutCopyUrl, %BtnCopy%
+    Gui, AboutDialog: Add, Button, x+10 yp w110 gAboutClose Default, %BtnClose%
+    Gui, AboutDialog: Show
+    Return
+
+AboutCopyUrl:
+    Clipboard := "https://github.com/chuchu-z/MoveMouseToMonitorV6"
+    ToolTip, % T("tip_url_copied")
+    SetTimer, RemoveAboutTip, -1800
+    Return
+
+RemoveAboutTip:
+    ToolTip
+    Return
+
+AboutClose:
+AboutDialogGuiClose:
+AboutDialogGuiEscape:
+    Gui, AboutDialog: Destroy
     Return
 
 ShowMonitorInfo:
@@ -164,51 +307,56 @@ ShowMonitorInfo:
         Width := Right - Left
         Height := Bottom - Top
         If (MonNum = PrimaryMonNum)
-            MonitorInfo .= "Monitor " . MonNum . " (Primary):`n"
+            MonitorInfo .= T("dialog_info_monitor") . MonNum . T("dialog_info_primary") . ":`n"
         Else
-            MonitorInfo .= "Monitor " . MonNum . ":`n"
-        MonitorInfo .= "Coordinates: " . Left . "x" . Top . " to " . Right . "x" . Bottom . "`n"
-        MonitorInfo .= "Size: " . Width . "x" . Height . "`n`n"
+            MonitorInfo .= T("dialog_info_monitor") . MonNum . ":`n"
+        MonitorInfo .= T("dialog_info_coords") . Left . "x" . Top . T("dialog_info_to") . Right . "x" . Bottom . "`n"
+        MonitorInfo .= T("dialog_info_size") . Width . "x" . Height . "`n`n"
     }
-    MsgBox, 4096, Monitor and Virtual Screen Information, %MonitorInfo%
+    InfoTitle := T("dialog_info_title")
+    MsgBox, 4096, %InfoTitle%, %MonitorInfo%
     Return
 
 IdentifyMonitors:
+    RestoreDPI := DllCall("SetThreadDpiAwarenessContext", "ptr", -3, "ptr")
     SysGet, NumMons, MonitorCount
+    BoxW := 300
+    BoxH := 300
+    BoxMargin := 50
     Loop, %NumMons%
     {
         MonNum := MonitorNums[A_Index]
-        SysGet, Coordinates%MonNum%, Monitor, %MonNum%
-        Left := Coordinates%MonNum%Left
-        Right := Coordinates%MonNum%Right
-        Top := Coordinates%MonNum%Top
-        Bottom := Coordinates%MonNum%Bottom
-        Width := Right - Left
-        Height := Bottom - Top
-        CoordText := "(" . Left . ", " . Top . ") - (" . Right . ", " . Bottom . ")"
-        CoordText := CoordText . " (Size: " . Width . "x" . Height . ")"
-        TrayTip := "Identifying Monitor " . MonNum . " (Virtual Screen: " . CoordText . ")"
-        Menu, Tray, Tip, %TrayTip%
-        TrayTip := ProgramName . "`n" . HotkeyModifiersTip . "Number 0-9 or Letter a-z (zero always primary)`nRight-click for context menu`n`nIdentifying Monitor " . MonNum . " (Virtual Screen: " . CoordText . ")"
-        Menu, Tray, Default
-        Sleep, %IdentifyMilliseconds%
-        TrayTip := ProgramName . "`n" . HotkeyModifiersTip . "Number 0-9 or Letter a-z (zero always primary)`nRight-click for context menu"
-        Menu, Tray, Tip, %TrayTip%
+        SysGet, Mon, Monitor, %MonNum%
+        BoxX := MonLeft + BoxMargin
+        BoxY := MonBottom - BoxH - BoxMargin
+        Gui, IdentifyBox%A_Index%: New, -Caption +AlwaysOnTop +ToolWindow +E0x20
+        Gui, IdentifyBox%A_Index%: Color, 0x111111
+        Gui, IdentifyBox%A_Index%: Margin, 0, 0
+        Gui, IdentifyBox%A_Index%: Font, s150 cWhite, Segoe UI Light
+        Gui, IdentifyBox%A_Index%: Add, Text, w%BoxW% h%BoxH% Center 0x200 BackgroundTrans, %MonNum%
+        Gui, IdentifyBox%A_Index%: Show, x%BoxX% y%BoxY% w%BoxW% h%BoxH% NoActivate
+    }
+    DllCall("SetThreadDpiAwarenessContext", "ptr", RestoreDPI, "ptr")
+    Sleep, %IdentifyMilliseconds%
+    Loop, %NumMons%
+    {
+        Gui, IdentifyBox%A_Index%: Destroy
     }
     Return
 
 ToggleStartWithWindows()
 {
+    MenuStartupLabel := T("menu_startup")
     RegRead, RegValue, HKCU, Software\Microsoft\Windows\CurrentVersion\Run, %ProgramName%
     If (RegValue = "")
     {
         RegWrite, REG_SZ, HKCU, Software\Microsoft\Windows\CurrentVersion\Run, %ProgramName%, %A_ScriptFullPath%
-        Menu, Tray, Check, Start with &Windows (On/Off toggle)
+        Menu, Tray, Check, %MenuStartupLabel%
     }
     Else
     {
         RegDelete, HKCU, Software\Microsoft\Windows\CurrentVersion\Run, %ProgramName%
-        Menu, Tray, Uncheck, Start with &Windows (On/Off toggle)
+        Menu, Tray, Uncheck, %MenuStartupLabel%
     }
     Return
 }

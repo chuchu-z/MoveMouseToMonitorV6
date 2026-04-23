@@ -36,59 +36,58 @@
 
 如果对你有用, 请点个Star✨吧
 
-具体修改如下👇
-
 
 
 ## 修改
 
-当执行完 **PerformMove** 函数成功移动鼠标后
-
-创建一个 **ActivateWindowByMousePosition** 函数,  获取当前鼠标位置的窗口 `title`
-
-`WinActivate` 会根据鼠标窗口的`title` 来激活目标窗口, 把键盘的聚焦也激活, 从而真正实现切换并激活窗口, 达到键鼠聚焦同步👍
-
-```autohotkey
-PerformMove(MoveMonNum, OffX, OffY)
-{
-    global MoveX, MoveY
-    Gosub, CheckNumMonsChanged
-    RestoreDPI := DllCall("SetThreadDpiAwarenessContext", "ptr", -3, "ptr")
-    SysGet, Coordinates%MoveMonNum%, Monitor, %MoveMonNum%
-    Left := Coordinates%MoveMonNum%Left
-    Right := Coordinates%MoveMonNum%Right
-    Top := Coordinates%MoveMonNum%Top
-    Bottom := Coordinates%MoveMonNum%Bottom
-    If (OffX = -1)
-        MoveX := Left + (Floor(0.5 * (Right - Left)))
-    Else
-        MoveX := Left + OffX
-    If (OffY = -1)
-        MoveY := Top + (Floor(0.5 * (Bottom - Top)))
-    Else
-        MoveY := Top + OffY
-    DllCall("SetCursorPos", "int", MoveX, "int", MoveY)
-    Sleep, 10
-    DllCall("SetCursorPos", "int", MoveX, "int", MoveY)
-    DllCall("SetThreadDpiAwarenessContext", "ptr", RestoreDPI, "ptr")
-
-    Gosub, ActivateWindowByMousePosition
-
-    Return
-}
-
-ActivateWindowByMousePosition:
-    MouseGetPos, , , id, control
-    WinGetTitle, title, ahk_id %id%
-    WinActivate, %title%
-    Return
-
-```
+V6 在原版基础上新增与改进了以下功能 👇
 
 
 
-## AutoHotKey工具
+### 🎯 键鼠焦点同步
+
+原版 `WinActivate` 通过窗口标题激活，同名窗口或空标题时会匹配错对象。V6 改为按**窗口句柄（`ahk_id`）** 激活，并过滤桌面 Shell（`Progman` / `WorkerW`），避免鼠标落在桌面空白处时抢走当前前台窗口的焦点。**键盘输入焦点真正跟随鼠标切换。**
+
+
+
+### 🧠 每屏记忆光标位置
+
+切屏时自动记录离开时的光标坐标；下次再切回该屏，光标**回到上次位置**而非屏幕中心。对于固定工作区（如右屏常驻 IDE、左屏浏览器）的用户，体验提升明显。
+
+
+
+### 🔌 显示器热插拔自动感知
+
+原版每次按快捷键都要轮询显示器数量，变化后弹窗要求手动 Reload。V6 改为监听 Windows 的 `WM_DISPLAYCHANGE` 消息，**插拔显示器时脚本静默自动 Reload，无弹窗打断**。
+
+
+
+### 🔢 Windows 风格的显示器识别浮窗
+
+对齐系统"显示设置 → 标识"按钮的视觉样式：
+
+- 每屏**左下角**（距边缘 50px）同时弹出 **300 × 300** 浮窗
+- 深黑背景 `#111111`，白色细体数字（`Segoe UI Light`）
+- **点击穿透**（不遮挡底下操作）、不抢焦点、3 秒后自动消失
+
+
+
+### ⌨️ 新增全局快捷键
+
+- `Alt + Ctrl + Shift + I`：**一键呼出"识别显示器"浮窗**，无需右键托盘菜单
+
+
+
+### 🌏 中英文双语界面
+
+- 托盘菜单新增「**切换语言 / Switch Language**」项，一键翻转
+- 托盘 Tip、显示器信息对话框、关于对话框全部同步多语言
+- 选择的语言持久化到 `MoveMouseToMonitor.ini`，下次启动沿用；**默认中文**
+
+## AutoHotKey 工具
 
 [AutoHotKey 1.1 下载地址](https://www.autohotkey.com/download/ahk-install.exe)
 
-安装完成后打开 **Ahk2Exe.exe** 程序, 把修改好的**MoveMouseToMonitor.ah**文件直接打包即可
+安装完成后打开 **Ahk2Exe.exe** 程序，把 **MoveMouseToMonitor.ah** 文件直接打包即可。
+
+> ⚠️ 如自行修改源码，请确保文件保存为 **UTF-8 with BOM** 编码，否则 Ahk2Exe 会把中文字符串按 ANSI 误解析，编译时报 `Missing close-quote` 错误。
